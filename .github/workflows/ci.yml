@@ -1,0 +1,48 @@
+name: CI — Test and Deploy
+
+on:
+  push:
+    branches: [main]       # run on every push to main
+  pull_request:
+    branches: [main]       # also run on pull requests targeting main
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest   # GitHub provides this Linux VM for free
+
+    steps:
+
+      # Step 1: Download your repo code onto the runner VM
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install the correct Python version
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Step 3: Install all packages listed in requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Step 4: Run all tests
+      # -v         = verbose (show each test name)
+      # --tb=short = short traceback on failure (easier to read)
+      # If ANY test fails, this step fails and the deploy step below is skipped
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+        env:
+          DB_PATH: /tmp/test_weather.db   # isolated temp DB for tests
+
+      # Step 5: Deploy to Render (only runs if all tests passed)
+      # "if: success()" is the default, but we add it explicitly for clarity.
+      # "github.ref == 'refs/heads/main'" ensures we only deploy from main,
+      # not from pull request branches.
+      - name: Deploy to Render
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Tests passed — triggering Render deployment..."
+          curl --silent --show-error --fail \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          echo "Deployment triggered."

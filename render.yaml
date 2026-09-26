@@ -1,0 +1,39 @@
+# render.yaml — Render.com deployment configuration
+#
+# This file tells Render how to build and run your FastAPI app.
+# Render reads this file automatically when you connect your GitHub repo.
+#
+# Render free tier gives you:
+#   - 1 web service (spins down after 15 min of inactivity, spins back up on request)
+#   - 750 hours/month of compute
+#   - Automatic HTTPS
+#   - Deploys on every push (via the GitHub deploy hook in ci.yml)
+#
+# Setup steps:
+#   1. Go to https://render.com and sign up (free)
+#   2. New → Web Service → Connect your GitHub repo
+#   3. Render will detect this file automatically
+#   4. Add environment variables in the Render dashboard:
+#        DB_PATH = /opt/render/project/src/data/weather.db
+#   5. Copy the Deploy Hook URL → paste into GitHub secret RENDER_DEPLOY_HOOK
+
+services:
+  - type: web
+    name: weather-anomaly-tracker
+    runtime: python
+    region: frankfurt          # closest to Germany — lower latency for you
+
+    # Command to install all Python packages
+    buildCommand: pip install -r requirements.txt
+
+    # Command to start the web server
+    # $PORT is provided by Render automatically — do not hardcode a port number
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    # Render will call GET /health to verify the app started correctly
+    healthCheckPath: /health
+
+    # Environment variables (non-secret ones go here; secrets go in Render dashboard)
+    envVars:
+      - key: DB_PATH
+        value: /opt/render/project/src/data/weather.db

@@ -1,0 +1,55 @@
+name: Daily ETL Pipeline
+
+on:
+  schedule:
+    
+    - cron: "0 8 * * *"
+
+  # Allows manual trigger from the GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      city:
+        description: "City to process (leave empty for all cities)"
+        required: false
+        default: ""
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Run the ETL pipeline.
+      # All secrets are passed as environment variables — never hardcode them!
+      # Add these secrets in: GitHub repo → Settings → Secrets and variables → Actions
+      - name: Run ETL pipeline
+        run: python -m etl.run_pipeline ${{ github.event.inputs.city }}
+        env:
+          DB_PATH: /tmp/weather.db
+
+          # Telegram alert credentials (optional)
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # Email alert credentials (optional)
+          EMAIL_FROM:        ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD:    ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO:          ${{ secrets.EMAIL_TO }}
+
+      # Print a summary to the GitHub Actions log
+      - name: Log completion
+        if: always()
+        run: |
+          echo "ETL pipeline finished at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Job status: ${{ job.status }}"
